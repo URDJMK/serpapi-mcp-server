@@ -20,53 +20,11 @@ Each server is designed to work with the Model Context Protocol (MCP), making it
 ## Features
 
 ### Google Search (`serpapi_google_search.py`)
-- Perform Google searches with extensive filtering options
-- Support for location-based searches
-- Domain inclusion/exclusion
-- Time period filtering
-- Safe search controls
-- Pagination support
-- Knowledge Graph results
-- Related questions
-- Local results and maps
-
 ### Google News (`serpapi_google_news.py`)
-- Search for news articles
-- Filter by publication, topic, or story
-- Support for section-specific searches
-- Sorting by relevance or date
-- Multi-language support
-- Regional news filtering
-
 ### Google Scholar (`serpapi_google_scholar.py`)
-- Academic paper searches
-- Citation information
-- Author searches
-- Publication filtering
-- Year range filtering
-- Sort by relevance or date
-- Access to abstracts and citations
-
 ### Google Trends (`serpapi_google_trend.py`)
-- Trending search topics
-- Interest over time data
-- Regional interest data
-- Related topics and queries
-- Real-time trending data
-
 ### YouTube Search (`serpapi_youtube_search.py`)
-- Search for YouTube videos
-- Filter by upload date, duration, and more
-- Channel-specific searches
-- Video metadata (views, likes, etc.)
-- Thumbnail access
-
 ### YouTube Transcript (`youtube_transcript.py`)
-- Retrieve transcripts from YouTube videos
-- Support for multiple languages
-- Timestamp inclusion options
-- Formatting controls
-- Full text search within transcripts
 
 ## Installation
 
@@ -241,7 +199,7 @@ Each server supports various parameters for fine-tuning your searches. Here are 
 - `hl`: Language code (e.g., 'en', 'es')
 - `safe`: Safe search setting ('active', 'off')
 
-[Full Google Search API Parameters Documentation](https://serpapi.com/google-search-api)
+[Full Google Search API Parameters Documentation](https://serpapi.com/search-api)
 
 ### Google News
 - `q`: Search query
@@ -286,8 +244,7 @@ Each server supports various parameters for fine-tuning your searches. Here are 
 - `language`: Language code for transcript (default: 'en')
 - `format`: Output format ('text', 'json')
 
-For a complete list of parameters, refer to the source code documentation and the [SerpAPI Documentation](https://serpapi.com/search-api).
-
+For a complete list of parameters, refer to the source code documentation [YouTube Transcript API](https://github.com/jdepoix/youtube-transcript-api)
 ## Supported Engines
 
 SerpAPI supports a wide range of search engines, including:
