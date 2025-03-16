@@ -45,7 +45,7 @@ cd serpapi-mcp-server
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install mcp serpapi python-dotenv youtube-transcript-api
+pip install -r requirements.txt
 ```
 
 3. Create a `.env` file in the project root based on the provided `.env.example`:
@@ -246,23 +246,6 @@ Each server supports various parameters for fine-tuning your searches. Here are 
 
 For a complete list of parameters, refer to the source code documentation [YouTube Transcript API](https://github.com/jdepoix/youtube-transcript-api)
 
-## Development
-
-### Running the Servers Individually
-
-You can run each server individually for testing:
-
-```bash
-python src/serpapi_google_search.py
-```
-
-### Debugging with MCP Inspector
-
-For development and debugging, you can use the MCP Inspector:
-
-```bash
-mcp dev src/serpapi_google_search.py
-```
 
 ### Troubleshooting
 
