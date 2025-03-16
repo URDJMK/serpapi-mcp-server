@@ -85,6 +85,14 @@ class GoogleMapsSearchArgs(BaseModel):
             description="Parameter defines the country to use for the Google Maps search. It's a two-letter country code. (e.g., 'us' for the United States, 'uk' for United Kingdom, or 'fr' for France). Head to the Google countries page for a full list of supported Google countries. Parameter only affects Place Results API.",
         ),
     ] = None
+    start: Annotated[
+        Optional[int],
+        Field(
+            default=None,
+            description="Parameter defines the result offset. It skips the given number of results. It's used for pagination. (e.g., '0' (default) is the first page of results, '20' is the 2nd page of results, '40' is the 3rd page of results, etc.). We recommend starting with '0' and increasing by '20' for the next page.",
+            ge=0,
+        ),
+    ] = None
     raw_json: Annotated[
         Optional[bool],
         Field(
@@ -218,6 +226,8 @@ class SerpApiGoogleMapsServer:
             cache_key_parts.append(f"hl={args.hl}")
         if args.gl:
             cache_key_parts.append(f"gl={args.gl}")
+        if args.start is not None:
+            cache_key_parts.append(f"start={args.start}")
             
         # Include the output format in the cache key
         if args.raw_json:
@@ -260,6 +270,8 @@ class SerpApiGoogleMapsServer:
             params["hl"] = args.hl
         if args.gl:
             params["gl"] = args.gl
+        if args.start is not None:
+            params["start"] = args.start
         
         # Make the API request
         try:
@@ -602,6 +614,11 @@ async def serve(api_key: str) -> None:
                         required=False,
                     ),
                     PromptArgument(
+                        name="start",
+                        description="Parameter defines the result offset for pagination. (e.g., '0' is the first page, '20' is the 2nd page, etc.)",
+                        required=False,
+                    ),
+                    PromptArgument(
                         name="raw_json",
                         description="Return the complete raw JSON response directly from the SerpAPI server without any processing or validation.",
                         required=False,
@@ -657,6 +674,7 @@ async def serve(api_key: str) -> None:
             google_domain = arguments.get("google_domain")
             hl = arguments.get("hl")
             gl = arguments.get("gl")
+            start = arguments.get("start")
             raw_json = arguments.get("raw_json", False)
             readable_json = arguments.get("readable_json", False)
             
@@ -708,6 +726,8 @@ async def serve(api_key: str) -> None:
                 search_args["hl"] = hl
             if gl:
                 search_args["gl"] = gl
+            if start is not None:
+                search_args["start"] = start
             
             search_args["raw_json"] = raw_json
             search_args["readable_json"] = readable_json
