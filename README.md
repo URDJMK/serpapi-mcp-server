@@ -1,4 +1,4 @@
-# SerpApi MCP Server
+# SerpApi MCP Server - Python
 
 A collection of Model Context Protocol (MCP) servers that integrate with SerpAPI and YouTube to provide search capabilities and data retrieval for AI assistants.
 
@@ -19,12 +19,12 @@ Each server is designed to work with the Model Context Protocol (MCP), making it
 
 ## Features
 
-### Google Search (`serpapi_google_search.py`)
-### Google News (`serpapi_google_news.py`)
-### Google Scholar (`serpapi_google_scholar.py`)
-### Google Trends (`serpapi_google_trend.py`)
-### YouTube Search (`serpapi_youtube_search.py`)
-### YouTube Transcript (`youtube_transcript.py`)
+ - Google Search (`serpapi_google_search.py`)
+ - Google News (`serpapi_google_news.py`)
+ - Google Scholar (`serpapi_google_scholar.py`)
+ - Google Trends (`serpapi_google_trend.py`)
+ - YouTube Search (`serpapi_youtube_search.py`)
+ - YouTube Transcript (`youtube_transcript.py`)
 
 ## Installation
 
@@ -153,7 +153,7 @@ python src/serpapi_google_search.py  # Or any other server file
 
 ## Example Queries
 
-Here are some examples of how to use these servers with Claude:
+Here are some examples of how to use these servers with Claude Desktop:
 
 ### Google Search
 ```
@@ -245,20 +245,6 @@ Each server supports various parameters for fine-tuning your searches. Here are 
 - `format`: Output format ('text', 'json')
 
 For a complete list of parameters, refer to the source code documentation [YouTube Transcript API](https://github.com/jdepoix/youtube-transcript-api)
-## Supported Engines
-
-SerpAPI supports a wide range of search engines, including:
-
-- Google
-- Google Light
-- Bing
-- Walmart
-- Yahoo
-- eBay
-- YouTube
-- DuckDuckGo
-- Yandex
-- Baidu
 
 ## Development
 
