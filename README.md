@@ -90,7 +90,12 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install mcp serpapi python-dotenv youtube-transcript-api
 ```
 
-3. Create a `.env` file in the project root with your SerpAPI API key:
+3. Create a `.env` file in the project root based on the provided `.env.example`:
+```bash
+cp .env.example .env
+```
+
+4. Edit the `.env` file and add your SerpAPI API key:
 ```
 SERPAPI_API_KEY=your_api_key_here
 ```
@@ -125,8 +130,7 @@ python src/serpapi_google_search.py  # Or any other server file
         "path/to/serpapi-mcp-server/src/serpapi_google_search.py"
       ],
       "env": {
-        "PYTHONPATH": "path/to/site-packages",
-        "SERPAPI_API_KEY": "your_api_key_here"
+        "PYTHONPATH": "path/to/site-packages"
       }
     },
     "serpapi-youtube-search": {
@@ -136,8 +140,7 @@ python src/serpapi_google_search.py  # Or any other server file
         "path/to/serpapi-mcp-server/src/serpapi_youtube_search.py"
       ],
       "env": {
-        "PYTHONPATH": "path/to/site-packages",
-        "SERPAPI_API_KEY": "your_api_key_here"
+        "PYTHONPATH": "path/to/site-packages"
       }
     },
     "serpapi-google-news": {
@@ -147,8 +150,7 @@ python src/serpapi_google_search.py  # Or any other server file
         "path/to/serpapi-mcp-server/src/serpapi_google_news.py"
       ],
       "env": {
-        "PYTHONPATH": "path/to/site-packages",
-        "SERPAPI_API_KEY": "your_api_key_here"
+        "PYTHONPATH": "path/to/site-packages"
       }
     },
     "serpapi-google-trend": {
@@ -158,8 +160,7 @@ python src/serpapi_google_search.py  # Or any other server file
         "path/to/serpapi-mcp-server/src/serpapi_google_trend.py"
       ],
       "env": {
-        "PYTHONPATH": "path/to/site-packages",
-        "SERPAPI_API_KEY": "your_api_key_here"
+        "PYTHONPATH": "path/to/site-packages"
       }
     },
     "serpapi-google-scholar": {
@@ -169,8 +170,7 @@ python src/serpapi_google_search.py  # Or any other server file
         "path/to/serpapi-mcp-server/src/serpapi_google_scholar.py"
       ],
       "env": {
-        "PYTHONPATH": "path/to/site-packages",
-        "SERPAPI_API_KEY": "your_api_key_here"
+        "PYTHONPATH": "path/to/site-packages"
       }
     },
     "youtube-transcript": {
@@ -187,9 +187,11 @@ python src/serpapi_google_search.py  # Or any other server file
 }
 ```
 
-2. Restart Claude for Desktop to load the new configuration.
+2. Make sure your SerpAPI key is set in the `.env` file in the project root directory.
 
-3. You can now use these search capabilities directly in your conversations with Claude.
+3. Restart Claude for Desktop to load the new configuration.
+
+4. You can now use these search capabilities directly in your conversations with Claude.
 
 ## Example Queries
 
@@ -322,7 +324,7 @@ mcp dev src/serpapi_google_search.py
 ### Troubleshooting
 
 #### Invalid API Key
-- Verify API key configuration in `.env` file or `claude_desktop_config.json`
+- Verify API key configuration in `.env` file
 - Confirm API key is active in SerpAPI dashboard
 - Check for any quotation marks or whitespace in the API key
 
