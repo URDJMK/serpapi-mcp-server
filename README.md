@@ -1,4 +1,10 @@
-<meta name="google-site-verification" content="7IUYOCgEkfkiWIEriwc2wXkKfrWOHg2SzPp8BKGEh7g" />
+<html>
+<head>
+  <meta name="google-site-verification" content="7IUYOCgEkfkiWIEriwc2wXkKfrWOHg2SzPp8BKGEh7g" />
+</head>
+</html>
+
+
 
 # SerpApi MCP Server - Python
 
