@@ -415,4 +415,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [SerpAPI Documentation](https://serpapi.com/docs)
 - [MCP Protocol Documentation](https://github.com/modelcontextprotocol/mcp)
-- [Claude for Desktop Documentation](https://claude.ai/docs) 
+- [Claude for Desktop Documentation](https://claude.ai/docs)
+
+<meta name="google-site-verification" content="7IUYOCgEkfkiWIEriwc2wXkKfrWOHg2SzPp8BKGEh7g" />
