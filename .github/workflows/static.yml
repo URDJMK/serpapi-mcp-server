@@ -36,7 +36,7 @@ jobs:
         run: |
           # Ensure the meta tag is added to your HTML files dynamically before deployment
           if [ -f "./index.html" ]; then
-            sed -i '/<head>/a <meta name="google-site-verification" content="your-verification-code">' ./index.html
+            sed -i '/<head>/a <meta name="google-site-verification" content="7IUYOCgEkfkiWIEriwc2wXkKfrWOHg2SzPp8BKGEh7g">' ./index.html
           fi
 
       - name: Setup Pages
