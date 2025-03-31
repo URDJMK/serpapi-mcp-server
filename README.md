@@ -1,3 +1,4 @@
+<meta name="google-site-verification" content="7IUYOCgEkfkiWIEriwc2wXkKfrWOHg2SzPp8BKGEh7g" />
 # SerpApi MCP Server - Python
 
 A collection of Model Context Protocol (MCP) servers that integrate with SerpAPI and YouTube to provide search capabilities and data retrieval for AI assistants.
@@ -417,4 +418,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [MCP Protocol Documentation](https://github.com/modelcontextprotocol/mcp)
 - [Claude for Desktop Documentation](https://claude.ai/docs)
 
-<meta name="google-site-verification" content="7IUYOCgEkfkiWIEriwc2wXkKfrWOHg2SzPp8BKGEh7g" />
