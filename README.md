@@ -1,4 +1,5 @@
 <meta name="google-site-verification" content="7IUYOCgEkfkiWIEriwc2wXkKfrWOHg2SzPp8BKGEh7g" />
+
 # SerpApi MCP Server - Python
 
 A collection of Model Context Protocol (MCP) servers that integrate with SerpAPI and YouTube to provide search capabilities and data retrieval for AI assistants.
