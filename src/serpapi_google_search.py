@@ -344,7 +344,7 @@ class SerpApiServer:
         # Make the API request
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(self.base_url, params=params) as response:
+                async with session.get(f"{self.base_url}{self.endpoints['SEARCH']}", params=params) as response:
                     if response.status != 200:
                         error_text = await response.text()
                         print(f"Error from SerpAPI: {error_text}", file=sys.stderr)
