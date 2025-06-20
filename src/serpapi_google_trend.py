@@ -3,6 +3,7 @@ import json
 import asyncio
 import aiohttp
 import sys
+from datetime import datetime
 from typing import List, Dict, Any, Union, Optional
 from pydantic import BaseModel, Field, field_validator
 from typing_extensions import Annotated
@@ -92,6 +93,44 @@ class GoogleTrendsArgs(BaseModel):
         ),
     ] = False
 
+class GoogleTrendsTrendingNowArgs(BaseModel):
+    """Arguments for Google Trends Trending Now search using SerpAPI."""
+    geo: Annotated[
+        Optional[str],
+        Field(
+            default="US",
+            description="Parameter defines the location from where you want the search to originate. It defaults to 'US' (United States). Examples include 'US' for United States, 'GB' for United Kingdom, 'FR' for France, 'DE' for Germany, 'JP' for Japan, etc. See Google Trends Trending Now Locations for a full list of supported locations.",
+        ),
+    ] = "US"
+    hl: Annotated[
+        Optional[str],
+        Field(
+            default="en",
+            description="Parameter defines the language to use for the Google Trends Trending Now search. It's a two-letter language code. Examples: 'en' for English, 'es' for Spanish, 'fr' for French, 'de' for German, 'ja' for Japanese, etc. See Google languages page for a full list of supported languages.",
+        ),
+    ] = "en"
+    hours: Annotated[
+        Optional[int],
+        Field(
+            default=24,
+            description="Parameter defines the number of past hours to retrieve the results for. It defaults to 24 (Past 24 hours). The predefined values from Google are: 4 (Past 4 hours), 24 (Past 24 hours), 48 (Past 48 hours), 168 (Past 7 days).",
+        ),
+    ] = 24
+    raw_json: Annotated[
+        Optional[bool],
+        Field(
+            default=False,
+            description="Return the complete raw JSON response directly from the SerpAPI server without any processing or validation. This bypasses all model validation and returns exactly what the API returns.",
+        ),
+    ] = False
+    readable_json: Annotated[
+        Optional[bool],
+        Field(
+            default=False,
+            description="Return results in markdown-formatted text instead of JSON. Creates a structured, human-readable document with headings, bold text, and organized sections for easy reading.",
+        ),
+    ] = False
+
 class GoogleTrendsResponseData(BaseModel):
     """The data field of the SerpAPI Google Trends response."""
     search_metadata: Dict[str, Any]
@@ -100,7 +139,14 @@ class GoogleTrendsResponseData(BaseModel):
     interest_by_region: Optional[Dict[str, Any]] = None
     related_topics: Optional[Dict[str, Any]] = None
     related_queries: Optional[Dict[str, Any]] = None
-    trending_searches: Optional[Dict[str, Any]] = None
+    trending_searches: Optional[List[Dict[str, Any]]] = None
+    error: Optional[str] = None
+
+class GoogleTrendsTrendingNowResponseData(BaseModel):
+    """The data field of the SerpAPI Google Trends Trending Now response."""
+    search_metadata: Dict[str, Any]
+    search_parameters: Dict[str, Any]
+    trending_searches: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
 
 class CachedSearch:
@@ -317,6 +363,173 @@ class SerpApiGoogleTrendsServer:
                 self.cache[cache_key] = CachedSearch(cache_key, formatted_response)
                 return formatted_response
 
+    async def google_trends_trending_now_search(self, args: GoogleTrendsTrendingNowArgs) -> Union[Dict[str, Any], str]:
+        """Search Google Trends Trending Now using SerpAPI."""
+        # Build the cache key from the search parameters
+        cache_key_parts = []
+        cache_key_parts.append(f"geo={args.geo}")
+        cache_key_parts.append(f"hl={args.hl}")
+        cache_key_parts.append(f"hours={args.hours}")
+        
+        # Include the output format in the cache key
+        if args.raw_json:
+            cache_key_parts.append("format=raw_json")
+        elif args.readable_json:
+            cache_key_parts.append("format=readable_json")
+        else:
+            cache_key_parts.append("format=clean_json")
+        
+        cache_key = "&".join(cache_key_parts)
+        
+        # Check cache first
+        now = asyncio.get_event_loop().time()
+        if cache_key in self.cache:
+            cached = self.cache[cache_key]
+            if now - cached.timestamp < self.cache_ttl:
+                print(f"Cache hit for trending now: {cache_key}", file=sys.stderr)
+                return cached.response
+        
+        # Prepare the search parameters
+        params = {
+            "engine": "google_trends_trending_now",
+            "api_key": self.api_key,
+            "geo": args.geo,
+            "hl": args.hl,
+            "hours": args.hours,
+        }
+        
+        # Make the API request
+        async with aiohttp.ClientSession(timeout=self.timeout) as session:
+            try:
+                print(f"Making SerpAPI Google Trends Trending Now request for geo: {args.geo}, hours: {args.hours}", file=sys.stderr)
+                async with session.get(
+                    self.base_url,
+                    params=params
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        print(f"SerpAPI error response: {error_text}", file=sys.stderr)
+                        try:
+                            # Try to parse error as JSON
+                            error_json = json.loads(error_text)
+                            error_message = error_json.get("error", error_text)
+                        except:
+                            error_message = error_text
+                        
+                        # Create a minimal response with the error
+                        error_response = {
+                            "search_metadata": {"status": "Error"},
+                            "search_parameters": params,
+                            "error": f"SerpAPI error: {error_message}"
+                        }
+                        
+                        # Format the error response based on the requested format
+                        formatted_response = None
+                        if args.raw_json:
+                            formatted_response = error_response
+                        elif args.readable_json:
+                            error_model = GoogleTrendsTrendingNowResponseData(**error_response)
+                            formatted_response = self.format_google_trends_trending_now_results(error_model)
+                        else:
+                            # Return clean dict for error response
+                            formatted_response = clean_json_dict(error_response)
+                        
+                        # Cache the formatted error response
+                        self.cache[cache_key] = CachedSearch(cache_key, formatted_response)
+                        return formatted_response
+                    
+                    # Get the raw JSON response
+                    raw_data = await response.json()
+                    
+                    # Process the response based on the requested format
+                    formatted_response = None
+                    
+                    # For raw_json, just return the raw data
+                    if args.raw_json:
+                        formatted_response = raw_data
+                        self.cache[cache_key] = CachedSearch(cache_key, formatted_response)
+                        return formatted_response
+                    
+                    # Check if the response contains an error field
+                    if "error" in raw_data:
+                        print(f"SerpAPI returned error: {raw_data['error']}", file=sys.stderr)
+                        error_response = {
+                            "search_metadata": {"status": "Error"},
+                            "search_parameters": params,
+                            "error": f"SerpAPI error: {raw_data['error']}"
+                        }
+                        
+                        # Format the error response based on the requested format
+                        if args.readable_json:
+                            error_model = GoogleTrendsTrendingNowResponseData(**error_response)
+                            formatted_response = self.format_google_trends_trending_now_results(error_model)
+                        else:
+                            # Return clean dict for error response
+                            formatted_response = clean_json_dict(error_response)
+                        
+                        # Cache the formatted error response
+                        self.cache[cache_key] = CachedSearch(cache_key, formatted_response)
+                        return formatted_response
+                    
+                    # Format based on the requested format
+                    if args.readable_json:
+                        # Convert to model for readable format
+                        trends_response = GoogleTrendsTrendingNowResponseData(**raw_data)
+                        formatted_response = self.format_google_trends_trending_now_results(trends_response)
+                    else:
+                        # Clean JSON mode (default) - return dict instead of model
+                        formatted_response = clean_json_dict(raw_data)
+                    
+                    # Cache the formatted response
+                    self.cache[cache_key] = CachedSearch(cache_key, formatted_response)
+                    return formatted_response
+                    
+            except asyncio.TimeoutError:
+                print("SerpAPI trending now request timed out", file=sys.stderr)
+                error_response = {
+                    "search_metadata": {"status": "Error"},
+                    "search_parameters": params,
+                    "error": "SerpAPI request timed out"
+                }
+                
+                # Format the error response based on the requested format
+                formatted_response = None
+                if args.raw_json:
+                    formatted_response = error_response
+                elif args.readable_json:
+                    error_model = GoogleTrendsTrendingNowResponseData(**error_response)
+                    formatted_response = self.format_google_trends_trending_now_results(error_model)
+                else:
+                    # Return clean dict for error response
+                    formatted_response = clean_json_dict(error_response)
+                
+                # Cache the formatted error response
+                self.cache[cache_key] = CachedSearch(cache_key, formatted_response)
+                return formatted_response
+                
+            except Exception as e:
+                print(f"SerpAPI trending now search error: {str(e)}", file=sys.stderr)
+                error_response = {
+                    "search_metadata": {"status": "Error"},
+                    "search_parameters": params,
+                    "error": f"SerpAPI error: {str(e)}"
+                }
+                
+                # Format the error response based on the requested format
+                formatted_response = None
+                if args.raw_json:
+                    formatted_response = error_response
+                elif args.readable_json:
+                    error_model = GoogleTrendsTrendingNowResponseData(**error_response)
+                    formatted_response = self.format_google_trends_trending_now_results(error_model)
+                else:
+                    # Return clean dict for error response
+                    formatted_response = clean_json_dict(error_response)
+                
+                # Cache the formatted error response
+                self.cache[cache_key] = CachedSearch(cache_key, formatted_response)
+                return formatted_response
+
     def format_google_trends_results(self, response: GoogleTrendsResponseData) -> str:
         """Format Google Trends results as human-readable text."""
         result = []
@@ -417,6 +630,73 @@ class SerpApiGoogleTrendsServer:
         
         return "\n".join(result)
 
+    def format_google_trends_trending_now_results(self, response: GoogleTrendsTrendingNowResponseData) -> str:
+        """Format Google Trends Trending Now results as human-readable text."""
+        result = []
+        
+        # Add search information
+        result.append(f"# Google Trends Trending Now Results")
+        
+        # Add error message if present
+        if response.error:
+            result.append(f"## Error")
+            result.append(response.error)
+            result.append("")
+            return "\n".join(result)
+        
+        # Add search parameters
+        if response.search_parameters:
+            result.append(f"## Search Parameters")
+            for key, value in response.search_parameters.items():
+                if key != "api_key":  # Don't show API key
+                    result.append(f"- **{key}**: {value}")
+            result.append("")
+        
+        # Add trending searches data
+        if response.trending_searches:
+            result.append(f"## Trending Searches")
+            for i, search in enumerate(response.trending_searches, 1):
+                result.append(f"### {i}. {search.get('query', 'Unknown Query')}")
+                
+                # Add basic info
+                if search.get('search_volume'):
+                    result.append(f"- **Search Volume**: {search['search_volume']:,}")
+                if search.get('increase_percentage'):
+                    result.append(f"- **Increase**: {search['increase_percentage']}%")
+                if search.get('active') is not None:
+                    status = "Active" if search['active'] else "Inactive"
+                    result.append(f"- **Status**: {status}")
+                
+                # Add timestamps
+                if search.get('start_timestamp'):
+                    start_time = datetime.fromtimestamp(search['start_timestamp'])
+                    result.append(f"- **Started**: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                if search.get('end_timestamp'):
+                    end_time = datetime.fromtimestamp(search['end_timestamp'])
+                    result.append(f"- **Ended**: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Add categories
+                if search.get('categories'):
+                    categories = [cat.get('name', 'Unknown') for cat in search['categories']]
+                    result.append(f"- **Categories**: {', '.join(categories)}")
+                
+                # Add trend breakdown
+                if search.get('trend_breakdown'):
+                    result.append(f"- **Related Queries**:")
+                    for query in search['trend_breakdown'][:5]:  # Show top 5
+                        result.append(f"  - {query}")
+                    if len(search['trend_breakdown']) > 5:
+                        result.append(f"  - ... and {len(search['trend_breakdown']) - 5} more")
+                
+                # Add SerpAPI link
+                if search.get('serpapi_google_trends_link'):
+                    result.append(f"- **Detailed Trends**: [View on SerpAPI]({search['serpapi_google_trends_link']})")
+                
+                result.append("")
+            result.append("")
+        
+        return "\n".join(result)
+
 def clean_json_dict(data):
     """Remove null, empty lists, empty dicts, and empty strings from a dict, recursively."""
     if isinstance(data, dict):
@@ -454,6 +734,32 @@ async def serve(api_key: str) -> None:
                 
                 This tool is ideal for market research, content planning, understanding search trends over time, competitive analysis, and identifying regional interest patterns.""",
                 inputSchema=GoogleTrendsArgs.model_json_schema(),
+            ),
+            Tool(
+                name="google_trends_trending_now",
+                description="""Search Google Trends Trending Now to get real-time trending searches for a specific location and time period. This API allows you to discover what people are searching for right now in different regions and languages.
+
+                The trending now data includes:
+                - Currently trending search queries
+                - Search volume and growth percentage
+                - Active/inactive status of trends
+                - Related queries and trend breakdowns
+                - Category information
+                - Time period data (start/end timestamps)
+
+                Output formats:
+                - By default, returns cleaned JSON without null/empty values.
+                - Set raw_json=True to get the complete raw JSON response with all fields.
+                - Set readable_json=True to get markdown-formatted text instead of JSON.
+                
+                This tool is perfect for:
+                - Real-time trend monitoring
+                - Content strategy based on current trends
+                - Social media content planning
+                - News and media monitoring
+                - Market research and competitive intelligence
+                - Understanding current public interest and sentiment""",
+                inputSchema=GoogleTrendsTrendingNowArgs.model_json_schema(),
             ),
         ]
     
@@ -519,6 +825,44 @@ async def serve(api_key: str) -> None:
                     ),
                 ],
             ),
+            Prompt(
+                name="google_trends_trending_now_prompt",
+                description="""Search Google Trends Trending Now to get real-time trending searches for a specific location and time period. This API allows you to discover what people are searching for right now in different regions and languages.
+
+                The trending now data includes currently trending search queries, search volume and growth percentage, active/inactive status of trends, related queries and trend breakdowns, category information, and time period data.
+                
+                By default, results are returned as cleaned JSON without null/empty values.
+                Set raw_json=True to get the complete raw JSON response with all fields.
+                Set readable_json=True to get markdown-formatted text instead of JSON for easier reading.
+                """,
+                arguments=[
+                    PromptArgument(
+                        name="geo",
+                        description="Parameter defines the location from where you want the search to originate. It defaults to 'US' (United States). Examples include 'US' for United States, 'GB' for United Kingdom, 'FR' for France, 'DE' for Germany, 'JP' for Japan, etc. See Google Trends Trending Now Locations for a full list of supported locations.",
+                        required=False,
+                    ),
+                    PromptArgument(
+                        name="hl",
+                        description="Parameter defines the language to use for the Google Trends Trending Now search. It's a two-letter language code. Examples: 'en' for English, 'es' for Spanish, 'fr' for French, 'de' for German, 'ja' for Japanese, etc. See Google languages page for a full list of supported languages.",
+                        required=False,
+                    ),
+                    PromptArgument(
+                        name="hours",
+                        description="Parameter defines the number of past hours to retrieve the results for. It defaults to 24 (Past 24 hours). The predefined values from Google are: 4 (Past 4 hours), 24 (Past 24 hours), 48 (Past 48 hours), 168 (Past 7 days).",
+                        required=False,
+                    ),
+                    PromptArgument(
+                        name="raw_json",
+                        description="Return the complete raw JSON response directly from the SerpAPI server without any processing or validation. This bypasses all model validation and returns exactly what the API returns.",
+                        required=False,
+                    ),
+                    PromptArgument(
+                        name="readable_json",
+                        description="Return results in markdown-formatted text instead of JSON. Creates a structured, human-readable document with headings, bold text, and organized sections for easy reading.",
+                        required=False,
+                    ),
+                ],
+            ),
         ]
     
     @server.call_tool()
@@ -534,7 +878,23 @@ async def serve(api_key: str) -> None:
             # Process the response based on its type
             if isinstance(response, dict):
                 # JSON response (raw or clean)
-                return [TextContent(type="text", text=json.dumps(response, indent=2))]
+                return [TextContent(type="text", text=json.dumps(response, indent=2, ensure_ascii=False))]
+            elif isinstance(response, str):
+                # Formatted readable text
+                return [TextContent(type="text", text=response)]
+            else:
+                # Fallback for unexpected response types
+                return [TextContent(type="text", text=str(response))]
+        elif name == "google_trends_trending_now":
+            args = GoogleTrendsTrendingNowArgs(**arguments)
+            
+            # Call the API and get the response in the requested format
+            response = await serpapi_server.google_trends_trending_now_search(args)
+            
+            # Process the response based on its type
+            if isinstance(response, dict):
+                # JSON response (raw or clean)
+                return [TextContent(type="text", text=json.dumps(response, indent=2, ensure_ascii=False))]
             elif isinstance(response, str):
                 # Formatted readable text
                 return [TextContent(type="text", text=response)]
@@ -627,7 +987,60 @@ async def serve(api_key: str) -> None:
                         "type": "function",
                         "function": {
                             "name": "google_trends_search",
-                            "arguments": json.dumps(search_args)
+                            "arguments": json.dumps(search_args, ensure_ascii=False)
+                        }
+                    }
+                ]
+                
+                return GetPromptResult(
+                    messages=messages,
+                    tool_calls=tool_calls,
+                )
+            elif name == "google_trends_trending_now_prompt":
+                # Extract parameters from arguments
+                geo = arguments.get("geo", "US")
+                hl = arguments.get("hl", "en")
+                hours = arguments.get("hours", 24)
+                raw_json = arguments.get("raw_json", False)
+                readable_json = arguments.get("readable_json", False)
+                
+                messages = []
+                
+                # System message
+                messages.append(PromptMessage(
+                    role="system",
+                    content="You are a helpful assistant that can analyze Google Trends Trending Now data and provide insights about real-time trending searches, their popularity, growth patterns, and related topics."
+                ))
+                
+                # User message
+                user_message = "I want to analyze trending searches right now"
+                if geo != "US":
+                    user_message += f" in {geo}"
+                if hours != 24:
+                    user_message += f" from the past {hours} hours"
+                user_message += f" with language set to {hl}."
+                
+                messages.append(PromptMessage(
+                    role="user",
+                    content=user_message
+                ))
+                
+                # Prepare search arguments
+                search_args = {
+                    "geo": geo,
+                    "hl": hl,
+                    "hours": hours,
+                    "raw_json": raw_json,
+                    "readable_json": readable_json
+                }
+                
+                tool_calls = [
+                    {
+                        "id": "google_trends_trending_now_1",
+                        "type": "function",
+                        "function": {
+                            "name": "google_trends_trending_now",
+                            "arguments": json.dumps(search_args, ensure_ascii=False)
                         }
                     }
                 ]

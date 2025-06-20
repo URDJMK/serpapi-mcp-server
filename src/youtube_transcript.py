@@ -8,10 +8,11 @@ from typing_extensions import Annotated
 import pathlib
 from urllib.parse import urlparse, parse_qs
 from dotenv import load_dotenv
+from requests import Session
 
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled, VideoUnavailable
-from youtube_transcript_api._transcripts import Transcript
+from youtube_transcript_api.proxies import GenericProxyConfig
 
 from mcp.server import Server
 from mcp.shared.exceptions import McpError
@@ -139,6 +140,44 @@ class YouTubeTranscriptServer:
                 return parsed.path[7:]
         raise ValueError("Could not extract video ID from URL")
     
+    def create_youtube_api_instance(self, args: YouTubeTranscriptArgs) -> YouTubeTranscriptApi:
+        """Create a configured YouTubeTranscriptApi instance based on arguments."""
+        # Create HTTP client session if cookies or custom config needed
+        http_client = None
+        
+        if args.cookies_path:
+            http_client = Session()
+            # Load cookies from file if provided
+            if os.path.exists(args.cookies_path):
+                try:
+                    # Simple cookie loading - you might need more sophisticated parsing
+                    # for full Netscape format support
+                    with open(args.cookies_path, 'r') as f:
+                        cookie_content = f.read().strip()
+                        # This is a simplified approach - in production, you'd want 
+                        # proper Netscape cookie file parsing
+                        http_client.headers.update({'Cookie': cookie_content})
+                except Exception as e:
+                    print(f"Warning: Could not load cookies from {args.cookies_path}: {e}", file=sys.stderr)
+        
+        # Configure proxy if provided
+        proxy_config = None
+        if args.proxy:
+            proxy_config = GenericProxyConfig(
+                http_url=args.proxy,
+                https_url=args.proxy
+            )
+        
+        # Create API instance with configurations
+        if proxy_config and http_client:
+            return YouTubeTranscriptApi(proxy_config=proxy_config, http_client=http_client)
+        elif proxy_config:
+            return YouTubeTranscriptApi(proxy_config=proxy_config)
+        elif http_client:
+            return YouTubeTranscriptApi(http_client=http_client)
+        else:
+            return YouTubeTranscriptApi()
+    
     async def get_transcript(self, args: YouTubeTranscriptArgs) -> Union[Dict[str, Any], str, List[Dict[str, Any]]]:
         """Get transcript for a YouTube video with specified options."""
         try:
@@ -153,31 +192,53 @@ class YouTubeTranscriptServer:
                 print(f"Using cached transcript for {cache_key}", file=sys.stderr)
                 return self.cache[cache_key].response
             
-            # Prepare proxy dict if provided
-            proxies = None
-            if args.proxy:
-                proxies = {"https": args.proxy}
+            # Create configured API instance
+            ytt_api = self.create_youtube_api_instance(args)
             
-            # Fetch the transcript
-            available_transcripts = YouTubeTranscriptApi.list_transcripts(video_id, proxies=proxies, cookies=args.cookies_path)
-            transcript = None
-            
+            # Try to fetch with preferred language first
             try:
-                transcript = available_transcripts.find_transcript([args.language])
-            except NoTranscriptFound:
+                fetched_transcript = ytt_api.fetch(
+                    video_id, 
+                    languages=[args.language], 
+                    preserve_formatting=args.preserve_formatting
+                )
+            except (NoTranscriptFound, TranscriptsDisabled):
                 # If the specified language is not found, try to get any available transcript
-                for t in available_transcripts:
-                    transcript = t
-                    break
-                else:
-                    return f"No transcript found for video {video_id}"
+                try:
+                    transcript_list = ytt_api.list(video_id)
+                    transcript = None
+                    
+                    # Try to find any available transcript
+                    for available_transcript in transcript_list:
+                        transcript = available_transcript
+                        break
+                    
+                    if transcript is None:
+                        return f"No transcript found for video {video_id}"
+                    
+                    fetched_transcript = transcript.fetch(preserve_formatting=args.preserve_formatting)
+                except Exception as e:
+                    return f"Error: Could not retrieve any transcript for video {video_id}: {str(e)}"
             
-            # Fetch the transcript data
-            transcript_data = transcript.fetch()
+            # Convert FetchedTranscript to list of dictionaries for processing
+            transcript_data = []
+            for snippet in fetched_transcript:
+                transcript_data.append({
+                    'text': snippet.text,
+                    'start': snippet.start,
+                    'duration': snippet.duration
+                })
             
             # Return raw JSON if requested
             if args.raw_json:
-                response = transcript_data
+                # Include metadata with the transcript data
+                response = {
+                    'video_id': fetched_transcript.video_id,
+                    'language': fetched_transcript.language,
+                    'language_code': fetched_transcript.language_code,
+                    'is_generated': fetched_transcript.is_generated,
+                    'transcript': transcript_data
+                }
                 self.cache[cache_key] = CachedTranscript(video_id, args.language, response)
                 return response
             
